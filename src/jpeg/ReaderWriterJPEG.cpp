@@ -1,19 +1,4 @@
-#include <osg/Image>
-#include <osg/Notify>
-#include <osg/Geode>
-#include <osg/ImageUtils>
-#include <osg/GL>
-
-#include <osgDB/Registry>
-#include <osgDB/FileNameUtils>
-#include <osgDB/FileUtils>
-
-#include <sstream>
-
-#if defined(_MSC_VER) && defined(OSG_DISABLE_MSVC_WARNINGS)
-    // disable "structure was padded due to __declspec(align())
-    #pragma warning( disable : 4324 )
-#endif
+#include "ReaderWriter_jpeg.h"
 
 /****************************************************************************
  *
@@ -51,16 +36,18 @@
 
 #include "EXIF_Orientation.h"
 
+#include <sstream>
+#include <iostream>
+#include <fstream>
+
 #include <setjmp.h>
-#include <string.h>
-#include <assert.h>
-#include <stdlib.h>
+#include <cstring>
+#include <cassert>
+#include <cstdlib>
 
-#if defined(_MSC_VER) && defined(OSG_DISABLE_MSVC_WARNINGS)
-    #pragma warning( disable : 4611 )
-#endif
+using namespace vsgSandbox;
 
-namespace osgDBJPEG
+namespace
 {
 
 #define ERR_NO_ERROR 0
@@ -437,7 +424,7 @@ my_output_message (j_common_ptr cinfo)
   /* Create the message */
   (*cinfo->err->format_message) (cinfo, buffer);
 
-  OSG_WARN<<buffer<<std::endl;
+  // OSG_WARN<<buffer<<std::endl;
 }
 
 
@@ -544,12 +531,15 @@ unsigned char* simage_jpeg_load(std::istream& fin,
      */
 
     /* check for orientation tag */
+#if 0
     *exif_orientation = EXIF_Orientation (&cinfo);
     if (*exif_orientation!=0)
     {
-        OSG_INFO<<"We have an EXIF_Orientation "<<exif_orientation<<std::endl;
+        // OSG_INFO<<"We have an EXIF_Orientation "<<exif_orientation<<std::endl;
     }
-
+#else
+    *exif_orientation = 0;
+#endif
 
     /* Step 4: set parameters for decompression */
     /* In this example, we don't need to change any of the defaults set by
@@ -647,161 +637,164 @@ unsigned char* simage_jpeg_load(std::istream& fin,
     }
     return buffer;
 }
-} // namespace osgDBJPEG
+} // namespace
 
-class ReaderWriterJPEG : public osgDB::ReaderWriter
+namespace
 {
+#if 0
+bool write_JPEG_file (std::ostream &fout, const osg::Image &img, int quality = 100) const
+{
+    if (!img.isDataContiguous())
+    {
+        // OSG_WARN<<"Warning: Writing of image data, that is non contiguous, is not supported by JPEG plugin."<<std::endl;
+        return WriteResult::ERROR_IN_WRITING_FILE;
+    }
 
-        WriteResult::WriteStatus write_JPEG_file (std::ostream &fout, const osg::Image &img, int quality = 100) const
-        {
-            if (!img.isDataContiguous())
-            {
-                OSG_WARN<<"Warning: Writing of image data, that is non contiguous, is not supported by JPEG plugin."<<std::endl;
-                return WriteResult::ERROR_IN_WRITING_FILE;
-            }
+    int image_width = img.s();
+    int image_height = img.t();
+    if ( (image_width == 0) || (image_height == 0) )
+    {
+        // OSG_DEBUG << "ReaderWriterJPEG::write_JPEG_file - Error no size" << std::endl;
+        return false;
+    }
 
-            int image_width = img.s();
-            int image_height = img.t();
-            if ( (image_width == 0) || (image_height == 0) )
-            {
-                OSG_DEBUG << "ReaderWriterJPEG::write_JPEG_file - Error no size" << std::endl;
-                return WriteResult::ERROR_IN_WRITING_FILE;
-            }
+    J_COLOR_SPACE image_color_space = JCS_RGB;
+    int image_components = 3;
+    // Only cater for gray, alpha and RGB for now
+    switch(img.getPixelFormat()) {
+    case(GL_DEPTH_COMPONENT):
+    case(GL_LUMINANCE):
+    case(GL_ALPHA): {
+        image_color_space = JCS_GRAYSCALE;
+        image_components = 1;
+        break;
+    }
+    case(GL_RGB): {
+        image_color_space = JCS_RGB;
+        image_components = 3;
+        break;
+    }
+    default:
+    {
+        // OSG_DEBUG << "ReaderWriterJPEG::write_JPEG_file - Error pixel format non supported" << std::endl;
+        return false; break;
+    }
+    }
 
-            J_COLOR_SPACE image_color_space = JCS_RGB;
-            int image_components = 3;
-            // Only cater for gray, alpha and RGB for now
-            switch(img.getPixelFormat()) {
-              case(GL_DEPTH_COMPONENT):
-              case(GL_LUMINANCE):
-              case(GL_ALPHA): {
-                  image_color_space = JCS_GRAYSCALE;
-                  image_components = 1;
-                  break;
-              }
-              case(GL_RGB): {
-                  image_color_space = JCS_RGB;
-                  image_components = 3;
-                  break;
-              }
-              default:
-              {
-                  OSG_DEBUG << "ReaderWriterJPEG::write_JPEG_file - Error pixel format non supported" << std::endl;
-                return WriteResult::ERROR_IN_WRITING_FILE; break;
-              }
-            }
+    JSAMPLE* image_buffer = (JSAMPLE*)(img.data());
 
-            JSAMPLE* image_buffer = (JSAMPLE*)(img.data());
+    /* This struct contains the JPEG compression parameters and pointers to
+     * working space (which is allocated as needed by the JPEG library).
+     * It is possible to have several such structures, representing multiple
+     * compression/decompression processes, in existence at once.  We refer
+     * to any one struct (and its associated working data) as a "JPEG object".
+     */
+    struct jpeg_compress_struct cinfo;
+    /* This struct represents a JPEG error handler.  It is declared separately
+     * because applications often want to supply a specialized error handler
+     * (see the second half of this file for an example).  But here we just
+     * take the easy way out and use the standard error handler, which will
+     * print a message on stderr and call exit() if compression fails.
+     * Note that this struct must live as long as the main JPEG parameter
+     * struct, to avoid dangling-pointer problems.
+     */
+    struct jpeg_error_mgr jerr;
+    /* More stuff */
+    //FILE * outfile;        /* target file */
+    JSAMPROW row_pointer[1];    /* pointer to JSAMPLE row[s] */
+    int row_stride;        /* physical row width in image buffer */
 
-            /* This struct contains the JPEG compression parameters and pointers to
-            * working space (which is allocated as needed by the JPEG library).
-            * It is possible to have several such structures, representing multiple
-            * compression/decompression processes, in existence at once.  We refer
-            * to any one struct (and its associated working data) as a "JPEG object".
-            */
-            struct jpeg_compress_struct cinfo;
-            /* This struct represents a JPEG error handler.  It is declared separately
-            * because applications often want to supply a specialized error handler
-            * (see the second half of this file for an example).  But here we just
-            * take the easy way out and use the standard error handler, which will
-            * print a message on stderr and call exit() if compression fails.
-            * Note that this struct must live as long as the main JPEG parameter
-            * struct, to avoid dangling-pointer problems.
-            */
-            struct jpeg_error_mgr jerr;
-            /* More stuff */
-            //FILE * outfile;        /* target file */
-            JSAMPROW row_pointer[1];    /* pointer to JSAMPLE row[s] */
-            int row_stride;        /* physical row width in image buffer */
+    /* Step 1: allocate and initialize JPEG compression object */
 
-            /* Step 1: allocate and initialize JPEG compression object */
+    /* We have to set up the error handler first, in case the initialization
+     * step fails.  (Unlikely, but it could happen if you are out of memory.)
+     * This routine fills in the contents of struct jerr, and returns jerr's
+     * address which we place into the link field in cinfo.
+     */
+    cinfo.err = jpeg_std_error(&jerr);
+    /* Now we can initialize the JPEG compression object. */
+    jpeg_create_compress(&cinfo);
 
-            /* We have to set up the error handler first, in case the initialization
-            * step fails.  (Unlikely, but it could happen if you are out of memory.)
-            * This routine fills in the contents of struct jerr, and returns jerr's
-            * address which we place into the link field in cinfo.
-            */
-            cinfo.err = jpeg_std_error(&jerr);
-            /* Now we can initialize the JPEG compression object. */
-            jpeg_create_compress(&cinfo);
+    /* Step 2: specify data destination (eg, a file) */
+    /* Note: steps 2 and 3 can be done in either order. */
 
-            /* Step 2: specify data destination (eg, a file) */
-            /* Note: steps 2 and 3 can be done in either order. */
+    /* Here we use the library-supplied code to send compressed data to a
+     * stdio stream.  You can also write your own code to do something else.
+     * VERY IMPORTANT: use "b" option to fopen() if you are on a machine that
+     * requires it in order to write binary files.
+     */
+    /*if (!(outfile = fopen(filename, "wb")))
+      {
+      return WriteResult::ERROR_IN_WRITING_FILE;
+      }*/
 
-            /* Here we use the library-supplied code to send compressed data to a
-            * stdio stream.  You can also write your own code to do something else.
-            * VERY IMPORTANT: use "b" option to fopen() if you are on a machine that
-            * requires it in order to write binary files.
-            */
-            /*if (!(outfile = fopen(filename, "wb")))
-            {
-                return WriteResult::ERROR_IN_WRITING_FILE;
-            }*/
+    //jpeg_stdio_dest(&cinfo, outfile);
+    osgDBJPEG::jpeg_stream_dest(&cinfo, &fout);
 
-            //jpeg_stdio_dest(&cinfo, outfile);
-            osgDBJPEG::jpeg_stream_dest(&cinfo, &fout);
+    /* Step 3: set parameters for compression */
 
-            /* Step 3: set parameters for compression */
+    /* First we supply a description of the input image.
+     * Four fields of the cinfo struct must be filled in:
+     */
+    cinfo.image_width = image_width;     /* image width and height, in pixels */
+    cinfo.image_height = image_height;
+    cinfo.input_components = image_components;        /* # of color components per pixel */
+    cinfo.in_color_space = image_color_space;     /* colorspace of input image */
+    /* Now use the library's routine to set default compression parameters.
+     * (You must set at least cinfo.in_color_space before calling this,
+     * since the defaults depend on the source color space.)
+     */
+    jpeg_set_defaults(&cinfo);
+    /* Now you can set any non-default parameters you wish to.
+     * Here we just illustrate the use of quality (quantization table) scaling:
+     */
+    jpeg_set_quality(&cinfo, quality, TRUE /* limit to baseline-JPEG values */);
 
-            /* First we supply a description of the input image.
-            * Four fields of the cinfo struct must be filled in:
-            */
-            cinfo.image_width = image_width;     /* image width and height, in pixels */
-            cinfo.image_height = image_height;
-            cinfo.input_components = image_components;        /* # of color components per pixel */
-            cinfo.in_color_space = image_color_space;     /* colorspace of input image */
-            /* Now use the library's routine to set default compression parameters.
-            * (You must set at least cinfo.in_color_space before calling this,
-            * since the defaults depend on the source color space.)
-            */
-            jpeg_set_defaults(&cinfo);
-            /* Now you can set any non-default parameters you wish to.
-            * Here we just illustrate the use of quality (quantization table) scaling:
-            */
-            jpeg_set_quality(&cinfo, quality, TRUE /* limit to baseline-JPEG values */);
+    /* Step 4: Start compressor */
 
-            /* Step 4: Start compressor */
+    /* TRUE ensures that we will write a complete interchange-JPEG file.
+     * Pass TRUE unless you are very sure of what you're doing.
+     */
+    jpeg_start_compress(&cinfo, TRUE);
 
-            /* TRUE ensures that we will write a complete interchange-JPEG file.
-            * Pass TRUE unless you are very sure of what you're doing.
-            */
-            jpeg_start_compress(&cinfo, TRUE);
+    /* Step 5: while (scan lines remain to be written) */
+    /*           jpeg_write_scanlines(...); */
 
-            /* Step 5: while (scan lines remain to be written) */
-            /*           jpeg_write_scanlines(...); */
+    /* Here we use the library's state variable cinfo.next_scanline as the
+     * loop counter, so that we don't have to keep track ourselves.
+     * To keep things simple, we pass one scanline per call; you can pass
+     * more if you wish, though.
+     */
+    row_stride = image_width * image_components;    /* JSAMPLEs per row in image_buffer */
 
-            /* Here we use the library's state variable cinfo.next_scanline as the
-            * loop counter, so that we don't have to keep track ourselves.
-            * To keep things simple, we pass one scanline per call; you can pass
-            * more if you wish, though.
-            */
-            row_stride = image_width * image_components;    /* JSAMPLEs per row in image_buffer */
+    while (cinfo.next_scanline < cinfo.image_height)
+    {
+        /* jpeg_write_scanlines expects an array of pointers to scanlines.
+         * Here the array is only one element long, but you could pass
+         * more than one scanline at a time if that's more convenient.
+         */
+        row_pointer[0] = & image_buffer[cinfo.next_scanline * row_stride];
+        (void) jpeg_write_scanlines(&cinfo, row_pointer, 1);
+    }
 
-            while (cinfo.next_scanline < cinfo.image_height)
-            {
-                /* jpeg_write_scanlines expects an array of pointers to scanlines.
-                * Here the array is only one element long, but you could pass
-                * more than one scanline at a time if that's more convenient.
-                */
-                row_pointer[0] = & image_buffer[cinfo.next_scanline * row_stride];
-                (void) jpeg_write_scanlines(&cinfo, row_pointer, 1);
-            }
+    /* Step 6: Finish compression */
 
-            /* Step 6: Finish compression */
+    jpeg_finish_compress(&cinfo);
+    /* After finish_compress, we can close the output file. */
+    //fclose(outfile);
 
-            jpeg_finish_compress(&cinfo);
-            /* After finish_compress, we can close the output file. */
-            //fclose(outfile);
+    /* Step 7: release JPEG compression object */
 
-            /* Step 7: release JPEG compression object */
+    /* This is an important step since it will release a good deal of memory. */
+    jpeg_destroy_compress(&cinfo);
 
-            /* This is an important step since it will release a good deal of memory. */
-            jpeg_destroy_compress(&cinfo);
+    /* And we're done! */
+    return true;
+}
+#endif
 
-            /* And we're done! */
-            return WriteResult::FILE_SAVED;
-        }
-        int getQuality(const osgDB::ReaderWriter::Options *options) const {
+#if 0
+int getQuality(const osgDB::ReaderWriter::Options *options) const {
             if(options) {
                 std::istringstream iss(options->getOptionString());
                 std::string opt;
@@ -816,175 +809,168 @@ class ReaderWriterJPEG : public osgDB::ReaderWriter
 
             return 100;
         }
-    public:
+#endif
+}
 
-        ReaderWriterJPEG()
+ReaderWriter_jpeg::ReaderWriter_jpeg()
+{
+}
+
+template<typename EType>
+vsg::ref_ptr<vsg::Data> createArray(std::uint32_t width, std::uint32_t height, void* data)
+{
+    return vsg::Array2D<EType>::create(width, height, static_cast<EType*>(data));
+}
+
+vsg::ref_ptr<vsg::Data> readJPGStream(std::istream& fin)
+{
+    unsigned char *imageData = NULL;
+    int width_ret;
+    int height_ret;
+    int numComponents_ret;
+    unsigned int exif_orientation=0;
+
+    imageData = simage_jpeg_load(fin, &width_ret, &height_ret, &numComponents_ret, &exif_orientation);
+
+    if (imageData==NULL) return {};
+
+    int s = width_ret;
+    int t = height_ret;
+
+    //int internalFormat = numComponents_ret;
+    vsg::ref_ptr<vsg::Data> result;
+    switch (numComponents_ret)
+    {
+    case 1:
+        result = createArray<std::uint8_t>(s, t, imageData);
+        result->setFormat(VK_FORMAT_R8_SRGB);
+        break;
+    case 2:
+        result = createArray<vsg::ubvec2>(s, t, imageData);
+        result->setFormat(VK_FORMAT_R8G8_SRGB);
+        break;
+    case 3:
+        result = createArray<vsg::ubvec3>(s, t, imageData);
+        result->setFormat(VK_FORMAT_R8G8B8_SRGB);
+        break;
+    case 4:
+        result = createArray<vsg::ubvec4>(s, t, imageData);
+        result->setFormat(VK_FORMAT_R8G8B8A8_SRGB);
+        break;
+    default:
+        break;
+    }
+#if 0
+    if (exif_orientation>0)
+    {
+        // guide for meaning of exif_orientation provided by webpage: http://sylvana.net/jpegcrop/exif_orientation.html
+        switch(exif_orientation)
         {
-            supportsExtension("jpeg","JPEG image format");
-            supportsExtension("jpg","JPEG image format");
+        case(1):
+            // OSG_INFO<<"EXIF_Orientation 1 (top, left side), No need to rotate image. "<<std::endl;
+            break;
+        case(2):
+            // OSG_INFO<<"EXIF_Orientation 2 (top, right side), flip x."<<std::endl;
+            pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
+                                                                  osg::Vec3i(pOsgImage->s()-1, 0, 0),
+                                                                  osg::Vec3i(-pOsgImage->s(), 0, 0),
+                                                                  osg::Vec3i(0, pOsgImage->t(), 0),
+                                                                  osg::Vec3i(0, 0, 1));
+            break;
+        case(3):
+            // OSG_INFO<<"EXIF_Orientation 3 (bottom, right side), rotate 180."<<std::endl;
+            pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
+                                                                  osg::Vec3i(pOsgImage->s()-1, pOsgImage->t()-1, 0),
+                                                                  osg::Vec3i(-pOsgImage->s(), 0, 0),
+                                                                  osg::Vec3i(0, -pOsgImage->t(), 0),
+                                                                  osg::Vec3i(0, 0, 1));
+            break;
+        case(4):
+            // OSG_INFO<<"EXIF_Orientation 4 (bottom, left side). flip y, rotate 180."<<std::endl;
+            pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
+                                                                  osg::Vec3i(0, pOsgImage->t()-1, 0),
+                                                                  osg::Vec3i(pOsgImage->s(), 0, 0),
+                                                                  osg::Vec3i(0, -pOsgImage->t(), 0),
+                                                                  osg::Vec3i(0, 0, 1));
+            break;
+        case(5):
+            // OSG_INFO<<"EXIF_Orientation 5 (left side, top). flip y, rotate 90."<<std::endl;
+            pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
+                                                                  osg::Vec3i(pOsgImage->s()-1, pOsgImage->t()-1, 0),
+                                                                  osg::Vec3i(0, -pOsgImage->t(), 0),
+                                                                  osg::Vec3i(-pOsgImage->s(), 0, 0),
+                                                                  osg::Vec3i(0, 0, 1));
+            break;
+        case(6):
+            // OSG_INFO<<"EXIF_Orientation 6 (right side, top). rotate 90."<<std::endl;
+            pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
+                                                                  osg::Vec3i(pOsgImage->s()-1, 0, 0),
+                                                                  osg::Vec3i(0, pOsgImage->t(), 0),
+                                                                  osg::Vec3i(-pOsgImage->s(), 0, 0),
+                                                                  osg::Vec3i(0, 0, 1));
+            break;
+        case(7):
+            // OSG_INFO<<"EXIF_Orientation 7 (right side, bottom), flip Y, rotate 270."<<std::endl;
+            pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
+                                                                  osg::Vec3i(0, 0, 0),
+                                                                  osg::Vec3i(0, pOsgImage->t(), 0),
+                                                                  osg::Vec3i(pOsgImage->s(), 0, 0),
+                                                                  osg::Vec3i(0, 0, 1));
+        case(8):
+            // OSG_INFO<<"EXIF_Orientation 8 (left side, bottom). rotate 270."<<std::endl;
+            pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
+                                                                  osg::Vec3i(0, pOsgImage->t()-1, 0),
+                                                                  osg::Vec3i(0, -pOsgImage->t(), 0),
+                                                                  osg::Vec3i(pOsgImage->s(), 0, 0),
+                                                                  osg::Vec3i(0, 0, 1));
+            break;
         }
 
-        virtual const char* className() const { return "JPEG Image Reader/Writer"; }
+    }
+#endif
 
-        ReadResult readJPGStream(std::istream& fin) const
-        {
-            unsigned char *imageData = NULL;
-            int width_ret;
-            int height_ret;
-            int numComponents_ret;
-            unsigned int exif_orientation=0;
+    return result;
+}
 
-            imageData = osgDBJPEG::simage_jpeg_load(fin, &width_ret, &height_ret, &numComponents_ret, &exif_orientation);
+vsg::ref_ptr<vsg::Object> ReaderWriter_jpeg::read(std::istream& fin,
+                                                  const vsg::ref_ptr<const vsg::Options>) const
+{
+    return readJPGStream(fin);
+}
 
-            if (imageData==NULL) return ReadResult::ERROR_IN_READING_FILE;
+vsg::ref_ptr<vsg::Object> ReaderWriter_jpeg::read(const vsg::Path& filename,
+                                                  const vsg::ref_ptr<const vsg::Options> options) const
+{
+    auto ext = vsg::fileExtension(filename);
+    if (ext == "jpeg" || ext == "jpg")
+    {
+        vsg::Path filenameToUse = options ? findFile(filename, options) : filename;
+        if (filenameToUse.empty()) return {};
 
-            int s = width_ret;
-            int t = height_ret;
-            int r = 1;
+        std::ifstream fin(filenameToUse, std::ios::in | std::ios::binary);
+        if (!fin) return {};
+        return readJPGStream(fin);
+    }
+    return {};
+}
 
-            //int internalFormat = numComponents_ret;
-            int internalFormat =
-                numComponents_ret == 1 ? GL_LUMINANCE :
-                numComponents_ret == 2 ? GL_LUMINANCE_ALPHA :
-                numComponents_ret == 3 ? GL_RGB :
-                numComponents_ret == 4 ? GL_RGBA : (GLenum)-1;
+#if 0
+virtual WriteResult writeImage(const osg::Image& img,std::ostream& fout,const osgDB::ReaderWriter::Options *options) const
+{
+    osg::ref_ptr<osg::Image> tmp_img = new osg::Image(img);
+    tmp_img->flipVertical();
+    WriteResult::WriteStatus ws = write_JPEG_file(fout, *(tmp_img.get()), getQuality(options));
+    return ws;
+}
 
-            unsigned int pixelFormat =
-                numComponents_ret == 1 ? GL_LUMINANCE :
-                numComponents_ret == 2 ? GL_LUMINANCE_ALPHA :
-                numComponents_ret == 3 ? GL_RGB :
-                numComponents_ret == 4 ? GL_RGBA : (GLenum)-1;
+virtual WriteResult writeImage(const osg::Image &img,const std::string& fileName, const osgDB::ReaderWriter::Options *options) const
+{
+    std::string ext = osgDB::getFileExtension(fileName);
+    if (!acceptsExtension(ext)) return WriteResult::FILE_NOT_HANDLED;
 
-            unsigned int dataType = GL_UNSIGNED_BYTE;
+    osgDB::ofstream fout(fileName.c_str(), std::ios::out | std::ios::binary);
+    if(!fout) return WriteResult::ERROR_IN_WRITING_FILE;
 
-            osg::ref_ptr<osg::Image> pOsgImage = new osg::Image;
-            pOsgImage->setImage(s,t,r,
-                internalFormat,
-                pixelFormat,
-                dataType,
-                imageData,
-                osg::Image::USE_NEW_DELETE);
-
-            if (exif_orientation>0)
-            {
-                // guide for meaning of exif_orientation provided by webpage: http://sylvana.net/jpegcrop/exif_orientation.html
-                switch(exif_orientation)
-                {
-                    case(1):
-                        OSG_INFO<<"EXIF_Orientation 1 (top, left side), No need to rotate image. "<<std::endl;
-                        break;
-                    case(2):
-                        OSG_INFO<<"EXIF_Orientation 2 (top, right side), flip x."<<std::endl;
-                        pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
-                                                                    osg::Vec3i(pOsgImage->s()-1, 0, 0),
-                                                                    osg::Vec3i(-pOsgImage->s(), 0, 0),
-                                                                    osg::Vec3i(0, pOsgImage->t(), 0),
-                                                                    osg::Vec3i(0, 0, 1));
-                        break;
-                    case(3):
-                        OSG_INFO<<"EXIF_Orientation 3 (bottom, right side), rotate 180."<<std::endl;
-                        pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
-                                                                    osg::Vec3i(pOsgImage->s()-1, pOsgImage->t()-1, 0),
-                                                                    osg::Vec3i(-pOsgImage->s(), 0, 0),
-                                                                    osg::Vec3i(0, -pOsgImage->t(), 0),
-                                                                    osg::Vec3i(0, 0, 1));
-                        break;
-                    case(4):
-                        OSG_INFO<<"EXIF_Orientation 4 (bottom, left side). flip y, rotate 180."<<std::endl;
-                        pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
-                                                                    osg::Vec3i(0, pOsgImage->t()-1, 0),
-                                                                    osg::Vec3i(pOsgImage->s(), 0, 0),
-                                                                    osg::Vec3i(0, -pOsgImage->t(), 0),
-                                                                    osg::Vec3i(0, 0, 1));
-                        break;
-                    case(5):
-                        OSG_INFO<<"EXIF_Orientation 5 (left side, top). flip y, rotate 90."<<std::endl;
-                        pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
-                                                                    osg::Vec3i(pOsgImage->s()-1, pOsgImage->t()-1, 0),
-                                                                    osg::Vec3i(0, -pOsgImage->t(), 0),
-                                                                    osg::Vec3i(-pOsgImage->s(), 0, 0),
-                                                                    osg::Vec3i(0, 0, 1));
-                        break;
-                    case(6):
-                        OSG_INFO<<"EXIF_Orientation 6 (right side, top). rotate 90."<<std::endl;
-                        pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
-                                                                    osg::Vec3i(pOsgImage->s()-1, 0, 0),
-                                                                    osg::Vec3i(0, pOsgImage->t(), 0),
-                                                                    osg::Vec3i(-pOsgImage->s(), 0, 0),
-                                                                    osg::Vec3i(0, 0, 1));
-                        break;
-                    case(7):
-                        OSG_INFO<<"EXIF_Orientation 7 (right side, bottom), flip Y, rotate 270."<<std::endl;
-                        pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
-                                                                    osg::Vec3i(0, 0, 0),
-                                                                    osg::Vec3i(0, pOsgImage->t(), 0),
-                                                                    osg::Vec3i(pOsgImage->s(), 0, 0),
-                                                                    osg::Vec3i(0, 0, 1));
-                    case(8):
-                        OSG_INFO<<"EXIF_Orientation 8 (left side, bottom). rotate 270."<<std::endl;
-                        pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
-                                                                    osg::Vec3i(0, pOsgImage->t()-1, 0),
-                                                                    osg::Vec3i(0, -pOsgImage->t(), 0),
-                                                                    osg::Vec3i(pOsgImage->s(), 0, 0),
-                                                                    osg::Vec3i(0, 0, 1));
-                        break;
-                }
-
-            }
-
-            return pOsgImage.release();
-        }
-
-        virtual ReadResult readObject(std::istream& fin,const osgDB::ReaderWriter::Options* options =NULL) const
-        {
-            return readImage(fin, options);
-        }
-
-        virtual ReadResult readObject(const std::string& file, const osgDB::ReaderWriter::Options* options =NULL) const
-        {
-            return readImage(file, options);
-        }
-
-        virtual ReadResult readImage(std::istream& fin,const osgDB::ReaderWriter::Options* =NULL) const
-        {
-            return readJPGStream(fin);
-        }
-
-        virtual ReadResult readImage(const std::string& file, const osgDB::ReaderWriter::Options* options) const
-        {
-            std::string ext = osgDB::getLowerCaseFileExtension(file);
-            if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
-
-            std::string fileName = osgDB::findDataFile( file, options );
-            if (fileName.empty()) return ReadResult::FILE_NOT_FOUND;
-
-            osgDB::ifstream istream(fileName.c_str(), std::ios::in | std::ios::binary);
-            if(!istream) return ReadResult::ERROR_IN_READING_FILE;
-            ReadResult rr = readJPGStream(istream);
-            if(rr.validImage()) rr.getImage()->setFileName(file);
-            return rr;
-        }
-
-        virtual WriteResult writeImage(const osg::Image& img,std::ostream& fout,const osgDB::ReaderWriter::Options *options) const
-        {
-            osg::ref_ptr<osg::Image> tmp_img = new osg::Image(img);
-            tmp_img->flipVertical();
-            WriteResult::WriteStatus ws = write_JPEG_file(fout, *(tmp_img.get()), getQuality(options));
-            return ws;
-        }
-
-        virtual WriteResult writeImage(const osg::Image &img,const std::string& fileName, const osgDB::ReaderWriter::Options *options) const
-        {
-            std::string ext = osgDB::getFileExtension(fileName);
-            if (!acceptsExtension(ext)) return WriteResult::FILE_NOT_HANDLED;
-
-            osgDB::ofstream fout(fileName.c_str(), std::ios::out | std::ios::binary);
-            if(!fout) return WriteResult::ERROR_IN_WRITING_FILE;
-
-            return writeImage(img,fout,options);
-        }
-};
-
-// now register with Registry to instantiate the above
-// reader/writer.
-REGISTER_OSGPLUGIN(jpeg, ReaderWriterJPEG)
+    return writeImage(img,fout,options);
+}
+#endif
