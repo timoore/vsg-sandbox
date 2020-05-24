@@ -14,12 +14,16 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #include <vsg/core/ref_ptr.h>
 #include <vsg/core/Data.h>
+#include <vsg/vk/Device.h>
 
 namespace vsgSandbox
 {
     class ImageTranslator
     {
     public:
+        ImageTranslator(vsg::Device* device = nullptr);
         vsg::ref_ptr<vsg::Data> translateToSupported(vsg::Data* texData);
+    protected:
+        vsg::ref_ptr<vsg::Device> _device;
     };
 }

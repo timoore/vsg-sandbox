@@ -4,34 +4,6 @@
 #include "jpeg/ReaderWriter_jpeg.h"
 #include "ReaderWriter_sandbox/ImageTranslator.h"
 
-vsg::ref_ptr<vsg::Data>
-translateToSupported(vsg::Data* texData)
-{
-    vsg::ref_ptr<vsg::Data> result;
-    auto format = texData->getFormat();
-    if (format == VK_FORMAT_R8G8B8A8_SRGB)
-    {
-        result = texData;
-        return result;
-    }
-    if (format != VK_FORMAT_R8G8B8_SRGB)
-    {
-        return result;
-    }
-    vsg::ubvec3Array2D* array3 = dynamic_cast<vsg::ubvec3Array2D*>(texData);
-    vsg::ref_ptr<vsg::ubvec4Array2D> array4 = vsg::ubvec4Array2D::create(texData->width(), texData->height());
-    array4->setFormat(VK_FORMAT_R8G8B8A8_SRGB);
-    for (uint32_t j = 0; j < texData->height(); ++j)
-    {
-        for (uint32_t i = 0; i < texData->width(); ++i)
-        {
-            vsg::ubvec3 v3 = array3->at(i, j);
-            array4->set(i, j, vsg::ubvec4{v3.r, v3.g, v3.b, 255});
-        }
-    }
-    return array4;
-}
-
 int main(int argc, char** argv)
 {
     // set up defaults and read command line arguments to override them
@@ -51,8 +23,18 @@ int main(int argc, char** argv)
 
     vsg::Path jpegFilename = arguments[1];
 
+    // create the viewer and assign window(s) to it
+    auto viewer = vsg::Viewer::create();
+
+    auto window = vsg::Window::create(windowTraits);
+    if (!window)
+    {
+        std::cout<<"Could not create windows."<<std::endl;
+        return 1;
+    }
+
     vsgSandbox::ReaderWriter_jpeg jpegReader;
-    vsgSandbox::ImageTranslator ImageTranslator;
+    vsgSandbox::ImageTranslator ImageTranslator(window->getOrCreateDevice());
 
     // set up search paths to SPIRV shaders and textures
     vsg::Paths searchPaths = vsg::getEnvPaths("VSG_FILE_PATH");
@@ -185,16 +167,6 @@ int main(int argc, char** argv)
 
     // add drawCommands to transform
     transform->addChild(drawCommands);
-
-    // create the viewer and assign window(s) to it
-    auto viewer = vsg::Viewer::create();
-
-    auto window = vsg::Window::create(windowTraits);
-    if (!window)
-    {
-        std::cout<<"Could not create windows."<<std::endl;
-        return 1;
-    }
 
     VkFormatProperties formatProperties;
     vkGetPhysicalDeviceFormatProperties(*window->getOrCreateDevice()->getPhysicalDevice(), textureData->getFormat(),
