@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include "jpeg/ReaderWriter_jpeg.h"
+#include "manipulators/OrthoTrackball.h"
 #include "ReaderWriter_sandbox/ImageTranslator.h"
 
 // For the graphics pipeline. The descriptor bindings and descriptor
@@ -201,7 +202,8 @@ int main(int argc, char** argv)
     viewer->compile();
 
     // assign a CloseHandler to the Viewer to respond to pressing Escape or press the window close button
-    viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
+    viewer->addEventHandlers({vsgSandbox::OrthoTrackball::create(camera),
+                              vsg::CloseHandler::create(viewer)});
 
     // main frame loop
     while (viewer->advanceToNextFrame())

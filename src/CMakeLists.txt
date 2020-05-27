@@ -7,6 +7,7 @@ set(HEADERS
 
 set(SOURCES
   jpeg/ReaderWriterJPEG.cpp
+  manipulators/OrthoTrackball.cpp
   ReaderWriter_sandbox/ImageTranslator.cpp
 )
 
