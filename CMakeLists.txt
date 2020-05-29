@@ -83,6 +83,17 @@ add_custom_target(uninstall
     COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/build/uninstall.cmake
 )
 
+include(TestBigEndian)
+
+TEST_BIG_ENDIAN(VSGSANDBOX_BIGENDIAN)
+
+set(VSGSANDBOX_BUILDTIME_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/include")
+include_directories(${VSGSANDBOX_BUILDTIME_INCLUDE_DIR})
+
+configure_file(
+    include/vsgsandbox/Config.h.in
+    ${VSGSANDBOX_BUILDTIME_INCLUDE_DIR}/Config.h)
+
 # source directory for our libraries
 add_subdirectory(src)
 #source directory for examples and applications

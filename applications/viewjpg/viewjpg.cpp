@@ -1,5 +1,6 @@
 #include <vsg/all.h>
 #include <iostream>
+#include <algorithm>
 
 #include "jpeg/ReaderWriter_jpeg.h"
 #include "manipulators/OrthoTrackball.h"
@@ -15,10 +16,14 @@ vsg::DescriptorSetLayoutBindings descriptorBindings
 };
 
 vsg::ref_ptr<vsg::MatrixTransform> createTextureGraph(vsg::ref_ptr<vsg::Data> textureData,
+                                                      vsg::ref_ptr<vsgSandbox::EXIF> exif,
                                                       vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout,
                                                       vsg::ref_ptr<vsg::DescriptorSetLayout> descriptorSetLayout)
 {
     // create texture image and associated DescriptorSets and binding
+    auto imageWidth = textureData->width();
+    auto imageHeight = textureData->height();
+    float ratio = static_cast<float>(imageWidth) / static_cast<float>(imageHeight);
     auto texture = vsg::DescriptorImage::create(vsg::Sampler::create(), textureData, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
     auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{texture});
@@ -37,6 +42,7 @@ vsg::ref_ptr<vsg::MatrixTransform> createTextureGraph(vsg::ref_ptr<vsg::Data> te
     transform->addChild(scenegraph);
 
     // set up vertex and index arrays
+    // Starting point, to be modified by image aspect ratio and EXIF data
     auto vertices = vsg::vec3Array::create(
     {
         {-0.5f, -0.5f, 0.0f},
@@ -44,15 +50,15 @@ vsg::ref_ptr<vsg::MatrixTransform> createTextureGraph(vsg::ref_ptr<vsg::Data> te
         {0.5f , 0.5f, 0.0f},
         {-0.5f, 0.5f, 0.0f}
     }); // VK_FORMAT_R32G32B32_SFLOAT, VK_VERTEX_INPUT_RATE_INSTANCE, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE
-
+    // XXX Not using the colors, better to change the input rate or
+    // not allocate them at all.
     auto colors = vsg::vec3Array::create(
     {
-        {1.0f, 0.0f, 0.0f},
-        {0.0f, 1.0f, 0.0f},
-        {0.0f, 0.0f, 1.0f},
+        {1.0f, 1.0f, 1.0f},
+        {1.0f, 1.0f, 1.0f},
+        {1.0f, 1.0f, 1.0f},
         {1.0f, 1.0f, 1.0f}
     }); // VK_FORMAT_R32G32B32_SFLOAT, VK_VERTEX_INPUT_RATE_VERTEX, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE
-
     auto texcoords = vsg::vec2Array::create(
     {
         {0.0f, 0.0f},
@@ -60,6 +66,69 @@ vsg::ref_ptr<vsg::MatrixTransform> createTextureGraph(vsg::ref_ptr<vsg::Data> te
         {1.0f, 1.0f},
         {0.0f, 1.0f}
     }); // VK_FORMAT_R32G32_SFLOAT, VK_VERTEX_INPUT_RATE_VERTEX, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE
+    {
+        using namespace vsgSandbox;
+        EXIF::Orientation orient = exif->orientation;
+        if (orient == EXIF::LeftTop
+            || orient == EXIF::RightTop
+            || orient == EXIF::RightBottom
+            || orient == EXIF::LeftBottom)
+        {
+            // Portrait mode
+            for (auto& vert : *vertices)
+            {
+                vert.y *= ratio;
+            }
+        }
+        else
+        {
+            // Landscape
+            for (auto& vert : *vertices)
+            {
+                vert.y /= ratio;
+            }
+        }
+        // Rotate the image to match
+        switch (orient)
+        {
+        case EXIF::TopLeft:
+            // already fine
+            break;
+        case EXIF::TopRight:
+            // flip left-to-right
+            std::swap((*texcoords)[0], (*texcoords)[1]);
+            std::swap((*texcoords)[2], (*texcoords)[3]);
+            break;
+        case EXIF::BottomRight:
+            // rotate 180
+            std::rotate(texcoords->begin(), texcoords->begin() + 2, texcoords->end());
+            break;
+        case EXIF::BottomLeft:
+            // flip top-to-bottom
+            std::swap((*texcoords)[0], (*texcoords)[3]);
+            std::swap((*texcoords)[1], (*texcoords)[2]);
+            break;
+        case EXIF::LeftTop:
+            // swap diagonally
+            std::swap((*texcoords)[0], (*texcoords)[2]);
+            break;
+        case EXIF::RightTop:
+            // rotate clockwise 90
+            std::rotate(texcoords->begin(), texcoords->begin() + 1, texcoords->end());
+            break;
+        case EXIF::RightBottom:
+            // swap diagonally
+            std::swap((*texcoords)[1], (*texcoords)[3]);
+            break;
+        case EXIF::LeftBottom:
+            // rotate counter-clockwise 90
+            std::rotate(texcoords->begin(), texcoords->begin() + 3, texcoords->end());
+            break;
+        default:
+            // Shouldn't happen
+            break;
+        }
+    }
 
     auto indices = vsg::ushortArray::create(
     {
@@ -129,6 +198,7 @@ int main(int argc, char** argv)
         std::cout<<"Could not read texture file : "<<jpegFilename<<std::endl;
         return 1;
     }
+    auto exif = vsgSandbox::EXIF::get(textureData);
     textureData = ImageTranslator.translateToSupported(textureData);
     // set up graphics pipeline
 
@@ -167,7 +237,7 @@ int main(int argc, char** argv)
     auto graphicsPipeline = vsg::GraphicsPipeline::create(pipelineLayout, vsg::ShaderStages{vertexShader, fragmentShader}, pipelineStates);
     auto bindGraphicsPipeline = vsg::BindGraphicsPipeline::create(graphicsPipeline);
 
-    auto transform = createTextureGraph(textureData, pipelineLayout, descriptorSetLayout);
+    auto transform = createTextureGraph(textureData, exif, pipelineLayout, descriptorSetLayout);
 
     auto scenegraph = vsg::StateGroup::create();
     scenegraph->add(bindGraphicsPipeline);

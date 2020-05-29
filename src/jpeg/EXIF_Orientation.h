@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-extern "C"
+extern "C"                      // OMG...
 {
     #include <jpeglib.h>
     #include "jerror.h"

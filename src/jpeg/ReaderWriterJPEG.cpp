@@ -531,15 +531,11 @@ unsigned char* simage_jpeg_load(std::istream& fin,
      */
 
     /* check for orientation tag */
-#if 0
     *exif_orientation = EXIF_Orientation (&cinfo);
     if (*exif_orientation!=0)
     {
         // OSG_INFO<<"We have an EXIF_Orientation "<<exif_orientation<<std::endl;
     }
-#else
-    *exif_orientation = 0;
-#endif
 
     /* Step 4: set parameters for decompression */
     /* In this example, we don't need to change any of the defaults set by
@@ -828,7 +824,7 @@ vsg::ref_ptr<vsg::Data> readJPGStream(std::istream& fin)
     int width_ret;
     int height_ret;
     int numComponents_ret;
-    unsigned int exif_orientation=0;
+    unsigned int exif_orientation=1;
 
     imageData = simage_jpeg_load(fin, &width_ret, &height_ret, &numComponents_ret, &exif_orientation);
 
@@ -860,75 +856,8 @@ vsg::ref_ptr<vsg::Data> readJPGStream(std::istream& fin)
     default:
         break;
     }
-#if 0
-    if (exif_orientation>0)
-    {
-        // guide for meaning of exif_orientation provided by webpage: http://sylvana.net/jpegcrop/exif_orientation.html
-        switch(exif_orientation)
-        {
-        case(1):
-            // OSG_INFO<<"EXIF_Orientation 1 (top, left side), No need to rotate image. "<<std::endl;
-            break;
-        case(2):
-            // OSG_INFO<<"EXIF_Orientation 2 (top, right side), flip x."<<std::endl;
-            pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
-                                                                  osg::Vec3i(pOsgImage->s()-1, 0, 0),
-                                                                  osg::Vec3i(-pOsgImage->s(), 0, 0),
-                                                                  osg::Vec3i(0, pOsgImage->t(), 0),
-                                                                  osg::Vec3i(0, 0, 1));
-            break;
-        case(3):
-            // OSG_INFO<<"EXIF_Orientation 3 (bottom, right side), rotate 180."<<std::endl;
-            pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
-                                                                  osg::Vec3i(pOsgImage->s()-1, pOsgImage->t()-1, 0),
-                                                                  osg::Vec3i(-pOsgImage->s(), 0, 0),
-                                                                  osg::Vec3i(0, -pOsgImage->t(), 0),
-                                                                  osg::Vec3i(0, 0, 1));
-            break;
-        case(4):
-            // OSG_INFO<<"EXIF_Orientation 4 (bottom, left side). flip y, rotate 180."<<std::endl;
-            pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
-                                                                  osg::Vec3i(0, pOsgImage->t()-1, 0),
-                                                                  osg::Vec3i(pOsgImage->s(), 0, 0),
-                                                                  osg::Vec3i(0, -pOsgImage->t(), 0),
-                                                                  osg::Vec3i(0, 0, 1));
-            break;
-        case(5):
-            // OSG_INFO<<"EXIF_Orientation 5 (left side, top). flip y, rotate 90."<<std::endl;
-            pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
-                                                                  osg::Vec3i(pOsgImage->s()-1, pOsgImage->t()-1, 0),
-                                                                  osg::Vec3i(0, -pOsgImage->t(), 0),
-                                                                  osg::Vec3i(-pOsgImage->s(), 0, 0),
-                                                                  osg::Vec3i(0, 0, 1));
-            break;
-        case(6):
-            // OSG_INFO<<"EXIF_Orientation 6 (right side, top). rotate 90."<<std::endl;
-            pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
-                                                                  osg::Vec3i(pOsgImage->s()-1, 0, 0),
-                                                                  osg::Vec3i(0, pOsgImage->t(), 0),
-                                                                  osg::Vec3i(-pOsgImage->s(), 0, 0),
-                                                                  osg::Vec3i(0, 0, 1));
-            break;
-        case(7):
-            // OSG_INFO<<"EXIF_Orientation 7 (right side, bottom), flip Y, rotate 270."<<std::endl;
-            pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
-                                                                  osg::Vec3i(0, 0, 0),
-                                                                  osg::Vec3i(0, pOsgImage->t(), 0),
-                                                                  osg::Vec3i(pOsgImage->s(), 0, 0),
-                                                                  osg::Vec3i(0, 0, 1));
-        case(8):
-            // OSG_INFO<<"EXIF_Orientation 8 (left side, bottom). rotate 270."<<std::endl;
-            pOsgImage = osg::createImageWithOrientationConversion(pOsgImage.get(),
-                                                                  osg::Vec3i(0, pOsgImage->t()-1, 0),
-                                                                  osg::Vec3i(0, -pOsgImage->t(), 0),
-                                                                  osg::Vec3i(pOsgImage->s(), 0, 0),
-                                                                  osg::Vec3i(0, 0, 1));
-            break;
-        }
-
-    }
-#endif
-
+    auto exif = EXIF::create(static_cast<EXIF::Orientation>(exif_orientation));
+    EXIF::set(result, exif);
     return result;
 }
 
@@ -974,3 +903,15 @@ virtual WriteResult writeImage(const osg::Image &img,const std::string& fileName
     return writeImage(img,fout,options);
 }
 #endif
+
+const std::string exifKey("vsgsandbox/exif");
+
+vsg::ref_ptr<EXIF> EXIF::get(vsg::Object* obj)
+{
+    return vsg::ref_ptr<EXIF>(obj->getObject<EXIF>(exifKey));
+}
+
+void EXIF::set(vsg::Object* obj, EXIF* exif)
+{
+    obj->setObject(exifKey, exif);
+}

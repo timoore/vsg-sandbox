@@ -1,0 +1,4 @@
+#pragma once
+
+// Is the system big-endian?
+#cmakedefine VSGSANDBOX_BIGENDIAN

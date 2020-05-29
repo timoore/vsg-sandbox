@@ -3,34 +3,44 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <osg/Notify>
-#include <osg/Endian>
+#include <vsgsandbox/Debug.h>
+#include <vsgsandbox/Endian.h>
 
 #define EXIF_IDENT_STRING  "Exif\000\000"
 
 static unsigned short de_get16(void *ptr, bool byteSwap)
 {
-       unsigned short val;
+    unsigned short val;
 
-       memcpy(&val, ptr, sizeof(val));
-       if (byteSwap) osg::swapBytes(val);
-
-       return val;
+    if (byteSwap)
+    {
+        vsgSandbox::swapBytes(val, ptr);
+    }
+    else
+    {
+        memcpy(&val, ptr, sizeof(val));
+    }
+    return val;
 }
 
 static unsigned int de_get32(void *ptr, bool byteSwap)
 {
-       unsigned int val;
+    unsigned int val;
 
-       memcpy(&val, ptr, sizeof(val));
-       if (byteSwap) osg::swapBytes(val);
-
-       return val;
+    if (byteSwap)
+    {
+        vsgSandbox::swapBytes(val, ptr);
+    }
+    else
+    {
+        memcpy(&val, ptr, sizeof(val));
+    }
+    return val;
 }
 
 int EXIF_Orientation (j_decompress_ptr cinfo)
 {
-    OSG_INFO<<"get_orientation()"<<std::endl;
+    VSGSB_DEBUG<<"get_orientation()"<<std::endl;
     jpeg_saved_marker_ptr exif_marker;  /* Location of the Exif APP1 marker */
     jpeg_saved_marker_ptr cmarker;      /* Location to check for Exif APP1 marker */
 
@@ -53,21 +63,21 @@ int EXIF_Orientation (j_decompress_ptr cinfo)
 
     if (exif_marker==NULL)
     {
-        OSG_INFO<<"exif_marker not found "<<std::endl;
+        VSGSB_DEBUG<<"exif_marker not found "<<std::endl;
         return 0;
     }
 
-    OSG_INFO<<"exif_marker found "<<exif_marker<<std::endl;
+    VSGSB_DEBUG<<"exif_marker found "<<exif_marker<<std::endl;
 
     /* Do we have enough data? */
     if (exif_marker->data_length < 32)
     {
-        OSG_INFO<<"exif_marker too short : "<<exif_marker->data_length<<std::endl;
+        VSGSB_DEBUG<<"exif_marker too short : "<<exif_marker->data_length<<std::endl;
         return 0;
     }
 
 
-    osg::Endian tiffHeaderEndian = osg::LittleEndian;
+    bool tiffHeaderBigEndian = false;
 
     const char leth[]  = {0x49, 0x49, 0x2a, 0x00};  // Little endian TIFF header
     const char beth[]  = {0x4d, 0x4d, 0x00, 0x2a};  // Big endian TIFF header
@@ -95,13 +105,13 @@ int EXIF_Orientation (j_decompress_ptr cinfo)
         /* Little endian TIFF header */
         if (memcmp (&exif_marker->data[i], leth, 4) == 0)
         {
-            tiffHeaderEndian = osg::LittleEndian;
+            tiffHeaderBigEndian = false;
             break;
         }
         /* Big endian TIFF header */
         else if (memcmp (&exif_marker->data[i], beth, 4) == 0)
         {
-            tiffHeaderEndian = osg::BigEndian;
+            tiffHeaderBigEndian = true;
             break;
         }
     }
@@ -109,20 +119,20 @@ int EXIF_Orientation (j_decompress_ptr cinfo)
     /* So did we find a TIFF header or did we just hit end of buffer? */
     if (i >= 16)
     {
-        OSG_INFO<<"Could not find TIFF header"<<std::endl;
+        VSGSB_DEBUG<<"Could not find TIFF header"<<std::endl;
         return 0;
     }
 
-    OSG_INFO<<"Found TIFF header = "<<i<<" endian = "<<((tiffHeaderEndian==osg::BigEndian)?"BigEndian":"LittleEndian")<< std::endl;
+    VSGSB_DEBUG<<"Found TIFF header = "<<i<<" endian = "<<(tiffHeaderBigEndian?"BigEndian":"LittleEndian")<< std::endl;
 
-    bool swapBytes = osg::getCpuByteOrder()!=tiffHeaderEndian;
-    OSG_INFO<<"swapBytes = "<<swapBytes<< std::endl;
+    bool swapBytes = vsgSandbox::isHostBigEndian()!=tiffHeaderBigEndian;
+    VSGSB_DEBUG<<"swapBytes = "<<swapBytes<< std::endl;
 
     /* Read out the offset pointer to IFD0 */
     unsigned int offset  = de_get32(&exif_marker->data[i] + 4, swapBytes);
     i += offset;
 
-    OSG_INFO<<"offset = "<<offset<<std::endl;
+    VSGSB_DEBUG<<"offset = "<<offset<<std::endl;
 
     /* Check that we still are within the buffer and can read the tag count */
     if ((i + 2) > exif_marker->data_length)
@@ -133,14 +143,14 @@ int EXIF_Orientation (j_decompress_ptr cinfo)
     unsigned int tags    = de_get16(&exif_marker->data[i], swapBytes);
     i += 2;
 
-    OSG_INFO<<"tags = "<<tags<<std::endl;
+    VSGSB_DEBUG<<"tags = "<<tags<<std::endl;
 
     /* Check that we still have enough data for all tags to check. The tags
     are listed in consecutive 12-byte blocks. The tag ID, type, size, and
     a pointer to the actual value, are packed into these 12 byte entries. */
     if ((i + tags * 12) > exif_marker->data_length)
     {
-        OSG_INFO<<"Not enough length for requied tags"<<std::endl;
+        VSGSB_DEBUG<<"Not enough length for requied tags"<<std::endl;
         return 0;
     }
 
@@ -154,7 +164,7 @@ int EXIF_Orientation (j_decompress_ptr cinfo)
         unsigned int type   = de_get16(&exif_marker->data[i + 2], swapBytes);
         unsigned int count  = de_get32(&exif_marker->data[i + 4], swapBytes);
 
-        OSG_INFO<<"  tag=0x"<<std::hex<<tag<<std::dec<<", type="<<type<<", count="<<count<<std::endl;
+        VSGSB_DEBUG<<"  tag=0x"<<std::hex<<tag<<std::dec<<", type="<<type<<", count="<<count<<std::endl;
 
         /* Is this the orientation tag? */
         if (tag==orient_tag_id)
@@ -168,14 +178,14 @@ int EXIF_Orientation (j_decompress_ptr cinfo)
                 pointer to the actual data is at offset 8. */
             unsigned int ret =  de_get16(&exif_marker->data[i + 8], swapBytes);
 
-            OSG_INFO<<"Found orientationTag, ret = "<<ret<<std::endl;
+            VSGSB_DEBUG<<"Found orientationTag, ret = "<<ret<<std::endl;
             return ret <= 8 ? ret : 0;
         }
         /* move the pointer to the next 12-byte tag field. */
         i = i + 12;
     }
 
-    OSG_INFO<<"Could not find EXIF Orientation tag"<<std::endl;
+    VSGSB_DEBUG<<"Could not find EXIF Orientation tag"<<std::endl;
 
     return 0; /* No EXIF Orientation tag found */
 }
