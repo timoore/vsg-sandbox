@@ -153,6 +153,7 @@ int main(int argc, char** argv)
     vsg::CommandLine arguments(&argc, argv);
 
     auto windowTraits = vsg::WindowTraits::create();
+    windowTraits->swapchainPreferences.surfaceFormat = VkSurfaceFormatKHR{VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR};
     windowTraits->debugLayer = arguments.read({"--debug","-d"});
     windowTraits->apiDumpLayer = arguments.read({"--api","-a"});
     arguments.read({"--window", "-w"}, windowTraits->width, windowTraits->height);
