@@ -165,8 +165,6 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    vsg::Path jpegFilename = arguments[1];
-
     // create the viewer and assign window(s) to it
     auto viewer = vsg::Viewer::create();
 
@@ -192,15 +190,6 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    // read texture image
-    vsg::ref_ptr<vsg::Data> textureData(dynamic_cast<vsg::Data*>(jpegReader.read(jpegFilename).get()));
-    if (!textureData)
-    {
-        std::cout<<"Could not read texture file : "<<jpegFilename<<std::endl;
-        return 1;
-    }
-    auto exif = vsgSandbox::EXIF::get(textureData);
-    textureData = ImageTranslator.translateToSupported(textureData);
     // set up graphics pipeline
 
     auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
@@ -238,19 +227,40 @@ int main(int argc, char** argv)
     auto graphicsPipeline = vsg::GraphicsPipeline::create(pipelineLayout, vsg::ShaderStages{vertexShader, fragmentShader}, pipelineStates);
     auto bindGraphicsPipeline = vsg::BindGraphicsPipeline::create(graphicsPipeline);
 
-    auto transform = createTextureGraph(textureData, exif, pipelineLayout, descriptorSetLayout);
-
     auto scenegraph = vsg::StateGroup::create();
     scenegraph->add(bindGraphicsPipeline);
-    // add transform to root of the scene graph
-    scenegraph->addChild(transform);
 
-    VkFormatProperties formatProperties;
-    vkGetPhysicalDeviceFormatProperties(*window->getOrCreateDevice()->getPhysicalDevice(), textureData->getFormat(),
-                                        &formatProperties);
-    if ((formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) == 0)
+    // read texture images
+    double imageOffset = 0.0;
+    for (int i = 1; i < argc; ++i, imageOffset += 1.1)
     {
-        std::cerr << "no no no\n";
+        vsg::Path jpegFilename = arguments[i];
+        vsg::ref_ptr<vsg::Data> textureData(dynamic_cast<vsg::Data*>(jpegReader.read(jpegFilename).get()));
+        if (!textureData)
+        {
+            std::cout<<"Could not read texture file : "<<jpegFilename<<std::endl;
+            return 1;
+        }
+        auto exif = vsgSandbox::EXIF::get(textureData);
+        textureData = ImageTranslator.translateToSupported(textureData);
+        VkFormatProperties formatProperties;
+        vkGetPhysicalDeviceFormatProperties(*window->getOrCreateDevice()->getPhysicalDevice(), textureData->getFormat(),
+                                            &formatProperties);
+        if ((formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) == 0)
+        {
+            std::cerr << "no no no\n";
+            break;
+        }
+
+        auto transform = createTextureGraph(textureData, exif, pipelineLayout, descriptorSetLayout);
+        vsg::dmat4 transformMat = transform->getMatrix();
+        vsg::dmat4 translate = vsg::translate(imageOffset, 0.0, 0.0);
+        transformMat = translate * transformMat;
+        transform->setMatrix(transformMat);
+
+        // add transform to root of the scene graph
+        scenegraph->addChild(transform);
+
     }
 
     viewer->addWindow(window);
