@@ -24,7 +24,10 @@ vsg::ref_ptr<vsg::MatrixTransform> createTextureGraph(vsg::ref_ptr<vsg::Data> te
     auto imageWidth = textureData->width();
     auto imageHeight = textureData->height();
     float ratio = static_cast<float>(imageWidth) / static_cast<float>(imageHeight);
-    auto texture = vsg::DescriptorImage::create(vsg::Sampler::create(), textureData, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    float maxLod = ceil(std::log2(std::max(imageWidth, imageHeight)));
+    auto sampler = vsg::Sampler::create();
+    sampler->info().maxLod = maxLod;
+    auto texture = vsg::DescriptorImage::create(sampler, textureData, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
     auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{texture});
     auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0,
