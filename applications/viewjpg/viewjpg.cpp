@@ -270,13 +270,23 @@ int main(int argc, char** argv)
 
     // camera related details
     auto viewport = vsg::ViewportState::create(window->extent2D());
-    double l, r, b = -1.0, t = 1.0;
+    // Apply the usual 3D technique to our 2D layout
+    vsg::ComputeBounds computeBounds;
+    scenegraph->accept(computeBounds);
+    vsg::dvec3 centre = (computeBounds.bounds.min+computeBounds.bounds.max)*0.5;
+    double radius = vsg::length(computeBounds.bounds.max-computeBounds.bounds.min)*0.6;
+
+    double l = centre.x - radius - .1;
+    double r = centre.x +  radius + .1;
     const VkViewport& vp = viewport->getViewport();
     double aspectRatio = vp.width / vp.height;
-    l = -(t - b) * aspectRatio / 2;
-    r = -l;
+    double t = centre.y + (radius + .1) / aspectRatio;
+    double b = centre.y - (radius + .1) / aspectRatio;
     auto ortho = vsg::Orthographic::create(l, r, b, t, 1.0, 10000.0);
-    auto lookAt = vsg::LookAt::create(vsg::dvec3(0.0, 0.0, 1.0), vsg::dvec3(0.0, 0.0, 0.0), vsg::dvec3(0.0, 1.0, 0.0));
+
+    auto lookAt = vsg::LookAt::create(centre + vsg::dvec3{0.0, 0.0, 1.0},
+                                      centre,
+                                      vsg::dvec3(0.0, 1.0, 0.0));
     auto camera = vsg::Camera::create(ortho, lookAt, viewport);
 
     auto commandGraph = vsg::createCommandGraphForView(window, camera, scenegraph);
