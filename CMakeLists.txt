@@ -74,6 +74,7 @@ endif()
 find_package(Vulkan REQUIRED)
 find_package(vsg REQUIRED)
 find_package(JPEG REQUIRED)
+find_package(PNG REQUIRED)
 
 add_custom_target(clobber
     COMMAND git clean -d -f -x

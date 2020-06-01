@@ -1,5 +1,7 @@
 #include "ReaderWriter_jpeg.h"
 
+#include <vsgsandbox/Utils.h>
+
 /****************************************************************************
  *
  * Follows is code extracted from the simage library.  Original Authors:
@@ -812,12 +814,6 @@ ReaderWriter_jpeg::ReaderWriter_jpeg()
 {
 }
 
-template<typename EType>
-vsg::ref_ptr<vsg::Data> createArray(std::uint32_t width, std::uint32_t height, void* data)
-{
-    return vsg::Array2D<EType>::create(width, height, static_cast<EType*>(data));
-}
-
 vsg::ref_ptr<vsg::Data> readJPGStream(std::istream& fin)
 {
     unsigned char *imageData = NULL;
@@ -838,20 +834,20 @@ vsg::ref_ptr<vsg::Data> readJPGStream(std::istream& fin)
     switch (numComponents_ret)
     {
     case 1:
-        result = createArray<std::uint8_t>(s, t, imageData);
-        result->setFormat(VK_FORMAT_R8_SRGB);
+        result = createArray<std::uint8_t>(s, t, imageData,
+                                           VK_FORMAT_R8_SRGB);
         break;
     case 2:
-        result = createArray<vsg::ubvec2>(s, t, imageData);
-        result->setFormat(VK_FORMAT_R8G8_SRGB);
+        result = createArray<vsg::ubvec2>(s, t, imageData,
+                                          VK_FORMAT_R8G8_SRGB);
         break;
     case 3:
-        result = createArray<vsg::ubvec3>(s, t, imageData);
-        result->setFormat(VK_FORMAT_R8G8B8_SRGB);
+        result = createArray<vsg::ubvec3>(s, t, imageData,
+                                          VK_FORMAT_R8G8B8_SRGB);
         break;
     case 4:
-        result = createArray<vsg::ubvec4>(s, t, imageData);
-        result->setFormat(VK_FORMAT_R8G8B8A8_SRGB);
+        result = createArray<vsg::ubvec4>(s, t, imageData,
+                                          VK_FORMAT_R8G8B8A8_SRGB);
         break;
     default:
         break;

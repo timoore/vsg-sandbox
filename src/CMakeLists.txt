@@ -8,8 +8,10 @@ set(HEADERS
 set(SOURCES
   jpeg/EXIF_Orientation.cpp
   jpeg/ReaderWriterJPEG.cpp
+  png/ReaderWriter_png.cpp
   manipulators/OrthoTrackball.cpp
   ReaderWriter_sandbox/ImageTranslator.cpp
+  ReaderWriter_sandbox/ReaderWriter_image.cpp
 )
 
 
@@ -23,15 +25,19 @@ set_property(TARGET vsgsandbox PROPERTY SOVERSION ${VSGSANDBOX_SOVERSION})
 set_property(TARGET vsgsandbox PROPERTY POSITION_INDEPENDENT_CODE ON)
 set_property(TARGET vsgsandbox PROPERTY CXX_STANDARD 17)
 
-target_include_directories(vsgsandbox PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
+target_include_directories(vsgsandbox
+  PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+  PRIVATE
+  $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/src>
 )
 
 target_link_libraries(vsgsandbox
     PUBLIC
     vsg::vsg
     ${JPEG_LIBRARIES}
+    ${PNG_LIBRARIES}
 )
 
 

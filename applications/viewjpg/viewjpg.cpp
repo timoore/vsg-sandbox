@@ -2,8 +2,9 @@
 #include <iostream>
 #include <algorithm>
 
-#include "jpeg/ReaderWriter_jpeg.h"
 #include "manipulators/OrthoTrackball.h"
+#include "ReaderWriter_sandbox/ReaderWriter_image.h"
+#include "jpeg/ReaderWriter_jpeg.h"
 #include "ReaderWriter_sandbox/ImageTranslator.h"
 
 // For the graphics pipeline. The descriptor bindings and descriptor
@@ -36,7 +37,7 @@ vsg::ref_ptr<vsg::MatrixTransform> createTextureGraph(vsg::ref_ptr<vsg::Data> te
     // set up model transformation node
     vsg::ref_ptr<vsg::MatrixTransform> transform = vsg::MatrixTransform::create(); // VK_SHADER_STAGE_VERTEX_BIT
 
-        // create a StateGroup for binding of the texture
+    // create a StateGroup for binding of the texture
     // descriptor. Should it go lower in the graph?
     auto scenegraph = vsg::StateGroup::create();
     scenegraph->add(bindDescriptorSet);
@@ -71,7 +72,7 @@ vsg::ref_ptr<vsg::MatrixTransform> createTextureGraph(vsg::ref_ptr<vsg::Data> te
     }); // VK_FORMAT_R32G32_SFLOAT, VK_VERTEX_INPUT_RATE_VERTEX, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE
     {
         using namespace vsgSandbox;
-        EXIF::Orientation orient = exif->orientation;
+        EXIF::Orientation orient = exif ? exif->orientation : EXIF::TopLeft;
         if (orient == EXIF::LeftTop
             || orient == EXIF::RightTop
             || orient == EXIF::RightBottom
@@ -178,7 +179,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    vsgSandbox::ReaderWriter_jpeg jpegReader;
+    vsgSandbox::ReaderWriter_image imageReader;
     vsgSandbox::ImageTranslator ImageTranslator(window->getOrCreateDevice());
 
     // set up search paths to SPIRV shaders and textures
@@ -237,11 +238,11 @@ int main(int argc, char** argv)
     double imageOffset = 0.0;
     for (int i = 1; i < argc; ++i, imageOffset += 1.1)
     {
-        vsg::Path jpegFilename = arguments[i];
-        vsg::ref_ptr<vsg::Data> textureData(dynamic_cast<vsg::Data*>(jpegReader.read(jpegFilename).get()));
+        vsg::Path imageFilename = arguments[i];
+        vsg::ref_ptr<vsg::Data> textureData(dynamic_cast<vsg::Data*>(imageReader.read(imageFilename).get()));
         if (!textureData)
         {
-            std::cout<<"Could not read texture file : "<<jpegFilename<<std::endl;
+            std::cout << "Could not read texture file : " << imageFilename << std::endl;
             return 1;
         }
         auto exif = vsgSandbox::EXIF::get(textureData);
