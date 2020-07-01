@@ -64,13 +64,19 @@ public:
     // artifacts.
     // textures
     std::vector<vsg::Data> images;
-    std::vector<vsg::Sampler> samples;
+    std::vector<vsg::Sampler> samplers;
     std::vector<vsg::DescriptorImage> descriptorImages;
     std::vector<vsg::ref_ptr<BufferedZone>> bufferedZones;
     std::vector<LoadedBufferView> loadedBufferViews;
+    vsg::ref_ptr<Data> makeAccessorData(const tinygltf::Accessor&)
     void makeBufferViews();
     
 };
+
+vsg::ref_ptr<Data> GLTFReader::makeAccessorData(const tinygltf::Accessor& accessor)
+{
+    
+}
 
 void GLTFReader::makeBufferViews()
 {
