@@ -3,7 +3,7 @@
 #include <vsg/core/Array2D.h>
 // Some useful functions
 
-namespace vsgSandbox
+namespace vsgsandbox
 {
     template<typename EType>
     vsg::ref_ptr<vsg::Data> createArray(std::uint32_t width, std::uint32_t height, void* data,

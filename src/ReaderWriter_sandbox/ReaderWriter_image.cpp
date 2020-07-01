@@ -14,7 +14,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include "jpeg/ReaderWriter_jpeg.h"
 #include <png/ReaderWriter_png.h>
 
-using namespace vsgSandbox;
+using namespace vsgsandbox;
 
 ReaderWriter_image::ReaderWriter_image()
 {

@@ -29,7 +29,7 @@ vsg::DescriptorSetLayoutBindings descriptorBindings
 };
 
 vsg::ref_ptr<vsg::MatrixTransform> createTextureGraph(vsg::ref_ptr<vsg::Data> textureData,
-                                                      vsg::ref_ptr<vsgSandbox::EXIF> exif,
+                                                      vsg::ref_ptr<vsgsandbox::EXIF> exif,
                                                       vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout,
                                                       vsg::ref_ptr<vsg::DescriptorSetLayout> descriptorSetLayout)
 {
@@ -83,7 +83,7 @@ vsg::ref_ptr<vsg::MatrixTransform> createTextureGraph(vsg::ref_ptr<vsg::Data> te
         {0.0f, 1.0f}
     }); // VK_FORMAT_R32G32_SFLOAT, VK_VERTEX_INPUT_RATE_VERTEX, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE
     {
-        using namespace vsgSandbox;
+        using namespace vsgsandbox;
         EXIF::Orientation orient = exif ? exif->orientation : EXIF::TopLeft;
         if (orient == EXIF::LeftTop
             || orient == EXIF::RightTop
@@ -191,8 +191,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    vsgSandbox::ReaderWriter_image imageReader;
-    vsgSandbox::ImageTranslator ImageTranslator(window->getOrCreateDevice());
+    vsgsandbox::ReaderWriter_image imageReader;
+    vsgsandbox::ImageTranslator ImageTranslator(window->getOrCreateDevice());
 
     // set up search paths to SPIRV shaders and textures
     vsg::Paths searchPaths = vsg::getEnvPaths("VSG_FILE_PATH");
@@ -257,7 +257,7 @@ int main(int argc, char** argv)
             std::cout << "Could not read texture file : " << imageFilename << std::endl;
             return 1;
         }
-        auto exif = vsgSandbox::EXIF::get(textureData);
+        auto exif = vsgsandbox::EXIF::get(textureData);
         textureData = ImageTranslator.translateToSupported(textureData);
         VkFormatProperties formatProperties;
         vkGetPhysicalDeviceFormatProperties(*window->getOrCreateDevice()->getPhysicalDevice(), textureData->getFormat(),
@@ -309,7 +309,7 @@ int main(int argc, char** argv)
     viewer->compile();
 
     // assign a CloseHandler to the Viewer to respond to pressing Escape or press the window close button
-    viewer->addEventHandlers({vsgSandbox::OrthoTrackball::create(camera),
+    viewer->addEventHandlers({vsgsandbox::OrthoTrackball::create(camera),
                               vsg::CloseHandler::create(viewer)});
 
     // main frame loop

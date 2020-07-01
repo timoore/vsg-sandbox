@@ -3,7 +3,7 @@
 #include "Config.h"
 #include <algorithm>
 
-namespace vsgSandbox
+namespace vsgsandbox
 {
 
     constexpr bool isHostBigEndian()

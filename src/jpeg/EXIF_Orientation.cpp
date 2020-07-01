@@ -26,7 +26,7 @@ static unsigned short de_get16(void *ptr, bool byteSwap)
 
     if (byteSwap)
     {
-        vsgSandbox::swapBytes(val, ptr);
+        vsgsandbox::swapBytes(val, ptr);
     }
     else
     {
@@ -41,7 +41,7 @@ static unsigned int de_get32(void *ptr, bool byteSwap)
 
     if (byteSwap)
     {
-        vsgSandbox::swapBytes(val, ptr);
+        vsgsandbox::swapBytes(val, ptr);
     }
     else
     {
@@ -137,7 +137,7 @@ int EXIF_Orientation (j_decompress_ptr cinfo)
 
     VSGSB_DEBUG<<"Found TIFF header = "<<i<<" endian = "<<(tiffHeaderBigEndian?"BigEndian":"LittleEndian")<< std::endl;
 
-    bool swapBytes = vsgSandbox::isHostBigEndian()!=tiffHeaderBigEndian;
+    bool swapBytes = vsgsandbox::isHostBigEndian()!=tiffHeaderBigEndian;
     VSGSB_DEBUG<<"swapBytes = "<<swapBytes<< std::endl;
 
     /* Read out the offset pointer to IFD0 */

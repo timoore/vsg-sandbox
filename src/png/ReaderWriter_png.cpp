@@ -26,7 +26,7 @@ extern "C"
     #include <png.h>
 }
 
-using namespace vsgSandbox;
+using namespace vsgsandbox;
 
 /* Transparency parameters */
 #define PNG_ALPHA     -2         /* Use alpha channel in PNG file, if there is one */
@@ -211,7 +211,7 @@ vsg::ref_ptr<vsg::Object> readPNGStream(std::istream& fin)
         if ( color == PNG_COLOR_TYPE_GRAY_ALPHA) { VSGSB_DEBUG << "color ==  PNG_COLOR_TYPE_GRAY_ALPHA"<<std::endl; }
 
         // png default to big endian, so we'll need to swap bytes if on a little endian machine.
-        if (depth>8 && !vsgSandbox::isHostBigEndian())
+        if (depth>8 && !vsgsandbox::isHostBigEndian())
             png_set_swap(png);
 
 

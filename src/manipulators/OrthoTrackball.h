@@ -15,7 +15,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsgsandbox/Export.h>
 #include <vsg/viewer/Trackball.h>
 
-namespace vsgSandbox
+namespace vsgsandbox
 {
     class VSGSANDBOX_DECLSPEC OrthoTrackball : public vsg::Inherit<vsg::Trackball, OrthoTrackball>
     {

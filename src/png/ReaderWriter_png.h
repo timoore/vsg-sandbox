@@ -3,7 +3,7 @@
 #include <vsgsandbox/Export.h>
 #include <vsg/io/ReaderWriter.h>
 
-namespace vsgSandbox
+namespace vsgsandbox
 {
     class VSGSANDBOX_DECLSPEC ReaderWriter_png : public vsg::Inherit<vsg::ReaderWriter, ReaderWriter_png>
     {

@@ -14,7 +14,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #include <vsg/core/Array2D.h>
 
-using namespace vsgSandbox;
+using namespace vsgsandbox;
 
 ImageTranslator::ImageTranslator(vsg::Device* device)
     : _device(device)

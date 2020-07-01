@@ -15,7 +15,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsgsandbox/Export.h>
 #include <vsg/io/ReaderWriter.h>
 
-namespace vsgSandbox
+namespace vsgsandbox
 {
     class VSGSANDBOX_DECLSPEC EXIF : public vsg::Inherit<vsg::Object, EXIF>
     {

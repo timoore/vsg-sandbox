@@ -12,7 +12,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #include "OrthoTrackball.h"
 
-using namespace vsgSandbox;
+using namespace vsgsandbox;
 
 OrthoTrackball::OrthoTrackball(vsg::ref_ptr<vsg::Camera> camera)
     : Inherit(camera)

@@ -48,7 +48,7 @@
 #include <cassert>
 #include <cstdlib>
 
-using namespace vsgSandbox;
+using namespace vsgsandbox;
 
 namespace
 {
