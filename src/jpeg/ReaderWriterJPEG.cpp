@@ -29,6 +29,7 @@
  * as the OSG does not use it.  Also for patches, bugs and new features
  * please send them direct to the OSG dev team rather than address above.
  *
+ * Ported as a VSG reader by Tim Moore, May 2020
  **********************************************************************/
 
 /*
