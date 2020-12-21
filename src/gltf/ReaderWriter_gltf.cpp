@@ -98,7 +98,7 @@ public:
     std::tuple<vsg::ref_ptr<vsg::GraphicsPipeline>,
                vsg::ref_ptr<vsg::BindDescriptorSet>,
                vsg::ref_ptr<vsg::Commands>>
-    getMeshComponents(int meshIndex);
+    getPrimitiveComponents(int meshIndex, int primIndex);
     void initAccessors();
     template<typename Element>
     vsg::ref_ptr<vsg::Array<Element>> makeAccessorData(int accessor)
@@ -351,44 +351,41 @@ std::map<std::string, uint32_t> attributeLocations = {
 std::tuple<vsg::ref_ptr<vsg::GraphicsPipeline>,
                vsg::ref_ptr<vsg::BindDescriptorSet>,
                vsg::ref_ptr<vsg::Commands>>
-GLTFReader::getMeshComponents(int meshIndex)
+GLTFReader::getPrimitiveComponents(int meshIndex, int primIndex)
 {
-    auto commands = vsg::Commands::create();
     uint32_t binding = 0;
-    for (const auto primitive : model.meshes[meshIndex].primitives)
+    const auto& primitive = model.meshes[meshIndex].primitives[primIndex];
+
+    vsg::DataList accessorData;
+    vsg::VertexInputState::Bindings bindings;
+    vsg::VertexInputState::Attributes attributes;
+    for (const auto& attrPair : primitive.attributes)
     {
-        vsg::DataList accessorData;
-        vsg::VertexInputState::Bindings bindings;
-        vsg::VertexInputState::Attributes attributes;
-        for (const auto& attrPair : primitive.attributes)
+        auto locItr = attributeLocations.find(attrPair.first);
+        if (locItr == attributeLocations.end())
         {
-            auto locItr = attributeLocations.find(attrPair.first);
-            if (locItr == attributeLocations.end())
-            {
-                // Unknown attribute
-                continue;
-            }
-            int attrIndex = attrPair.second;
-            tinygltf::Accessor& attrAccessor = model.accessors[attrIndex];
-            auto formatItr = formatMap.find(std::make_pair(attrAccessor.componentType, attrAccessor.type));
-            if (formatItr == formatMap.end())
-            {
-                // Unknown type
-                continue;
-            }
-            vsg::ref_ptr<Data> data = getAccessorData(attrIndex);
-            if (data)
-            {
-                accessorData.push_back(data);
-                bindings.push_back(VkVertexInputBindingDescription(binding, data->valueSize(),
-                                                                   VK_VERTEX_INPUT_RATE_VERTEX));
-                attributes.push_back(locItr->second, binding, formatItr->second, 0);
-                ++binding;
-            }
+            // Unknown attribute
+            continue;
         }
-        auto drawCommands = vsg::Commands::create();
-        
+        int attrIndex = attrPair.second;
+        tinygltf::Accessor& attrAccessor = model.accessors[attrIndex];
+        auto formatItr = formatMap.find(std::make_pair(attrAccessor.componentType, attrAccessor.type));
+        if (formatItr == formatMap.end())
+        {
+            // Unknown type
+            continue;
+        }
+        vsg::ref_ptr<Data> data = getAccessorData(attrIndex);
+        if (data)
+        {
+            accessorData.push_back(data);
+            bindings.push_back(VkVertexInputBindingDescription(binding, data->valueSize(),
+                                                               VK_VERTEX_INPUT_RATE_VERTEX));
+            attributes.push_back(locItr->second, binding, formatItr->second, 0);
+            ++binding;
+        }
     }
+    auto drawCommands = vsg::Commands::create();
 }
 
 ReaderWriter_gltf::ReaderWriter_gltf()
