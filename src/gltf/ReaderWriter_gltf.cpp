@@ -386,6 +386,10 @@ GLTFReader::getPrimitiveComponents(int meshIndex, int primIndex)
         }
     }
     auto drawCommands = vsg::Commands::create();
+    vsg::ref_ptr<Data> indexData = getAccessorData(primitive.indices);
+    drawCommands->addChild(vsg::BindVertexBuffers::create(0, accessorData));
+    drawCommands->addChild(vsg::BindIndexBuffer::create(indexData));
+    drawCommands->addChild(vsg::DrawIndexed::create(indexData->valueCount()))
 }
 
 ReaderWriter_gltf::ReaderWriter_gltf()
